@@ -1,0 +1,1 @@
+java.property.com.tibco.plugin.soap.SOAPSendReceiveActivity.NoOutputValidation=true

@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project name="TestLogging_DEV" basedir="." default="deployEar">
+
+    <property name="projectName" value="TestLogging_DEV"/>
+ <property name="Application.Name" value="TestLogging"/>
+
+<!--Continous Integration Widows server properties-->
+    <property name="DeploymnetFiles.dir" value="C:\Program Files\Jenkins\workspace\${projectName}\DeploymentFiles"/>
+    <property name="jar.dir" value="../lib"/>
+    <property name="tibco.tra.home" value="C:\tibco\tra\5.11\bin"/>
+	<property name="tibco.BuildEar.path" value="C:\tibco\tra\5.11\bin\buildear.exe"/>
+	<property name="tibco.AppManage.path" value="C:\tibco\tra\5.11\bin\AppManage.exe"/>
+
+	<property name="Archive.path" value="/Deployment/${Application.Name}.archive"/>	
+	<property name="Remote.App.path" value="C:\Program Files\Jenkins\workspace\${projectName}\${Application.Name}"/>
+     <property name="Remote.EAR.Path" value="C:\Program Files\Jenkins\workspace\${projectName}\DeploymentFiles\${Application.Name}.ear"/>
+ 	<property name="Exported.XML.Path" value="C:\Program Files\Jenkins\workspace\${projectName}\DeploymentFiles\${Application.Name}_Exported.xml"/>
+	<property name="EMSScript.Path" value="C:\Program Files\Jenkins\workspace\${projectName}\SupportResources\EMSScript\CreateScript.txt"/>
+
+	<property name="DTL.Property.Path" value="C:\Program Files\Jenkins\workspace\DTL\BuildEar_DTL.Properties.txt"/>
+	
+
+	<!-- you need to update the Name based of Env Name-->
+        <property name="Updated.xml.Path" value="C:\Program Files\Jenkins\workspace\${projectName}\DeploymentFiles\${projectName}.xml"/>
+
+	<!-- you need to update the Name based of Env Name-->
+	<property name="propertyFile.Name" value="C:\Program Files\Jenkins\workspace\${projectName}\SupportResources\Jenkins\DEV.properties"/>
+
+
+<!--TIBCO Admin Domain properties-->
+  <property name="tibco.domain" value="DEV"/>
+  <property name="tibco.admin.user" value="test"/>
+  <property name="tibco.admin.password" value="test"/>
+	
+<!-- The Deployment grouping Folder -->
+   <property name="tibco.admin.dir" value="${Application.Name}/${Application.Name}"/>
+
+<!--To make your deployment appears woth comment ex:APP_DEV-Jenkins99-SVN289 -->
+	<property environment="env"/>
+   <property name="appmanage.deployment.description" value="${env.JOB_NAME}-Jenkins${env.BUILD_NUMBER}-SVN${env.SVN_REVISION}"/>
+
+
+<!--Deploymnet UNIX Server properties,,you need to update  the values , also update the version incase of any upgrade-->
+	<property name="Server.tibco.tra.home" value="C:\tibco\tra\5.11\bin"/>
+	<!--<property name="Server.tibco.EMS.home" value="/Application_mw/App/tibco/ems/8.1/bin"/>  -->
+	<!-- <property name="Server.Config.Folder.Path" value="/Application_mw/App/${Application.Name}/DeploymentFiles/EMSScript/"/> -->
+	<property name="tibco.app.earfile" value="/Application_mw/App/${Application.Name}/DeploymentFiles/${Application.Name}.ear"/>
+	<property name="tibco.app.xml.config" value="/Application_mw/App/${Application.Name}/DeploymentFiles/${projectName}.xml"/>
+
+    <property name="SSH.Password" value="password"/>
+	<property name="SSH.User" value="username"/>
+     <property name="tibco.server.host" value="localhost"/>
+
+	<property name="SSH.Location" value="/Application_mw/App/${Application.Name}/DeploymentFiles/"/>
+     
+	<property name="IP_ADDRESS.File.location" value="/Application_mw/App/${Application.Name}/IP_ADDRESS.txt"/>  
+
+	 <property name="Application.EMS.Script" value="/Application_mw/App/${Application.Name}/DeploymentFiles/EMSScript/CreateScript.txt"/>
+	 
+	 <property name="Remote.SoapVAlidation.path" value="C:\Program Files\Jenkins\workspace\${projectName}\SupportResources\Jenkins\SoapVAlidation.txt"/>
+	
+	  
+	
+	<!--need to be updated per application-->
+	<property name="App.tra.path" value="/Application_mw/App/tibco/tra/domain/${tibco.domain}/application/${Application.Name}"/> 
+
+	<property name="NoOutputValidation" value="java.property.com.tibco.plugin.soap.SOAPSendReceiveActivity.NoOutputValidation=true"/> 
+<!--other properties-->
+   
+    <property name="Application.TRA.Name" value="${Application.Name}-Process_Archive.tra"/>
+
+    <property name="StopSoapTracingAttribute" value="true"/>
+		<condition property="StopSoapTracing">
+            <equals arg1="${StopSoapTracingAttribute}" arg2="true" />
+        	</condition>
+
+    <property name="CreateDBPreReqAttribute" value="true" />
+		<condition property="CreateDBPreReq">
+            <equals arg1="${CreateDBPreReqAttribute}" arg2="true" />
+       	 </condition>
+
+
+    
+	<target name="Clean" description="Delete ear directory in Jenkins remote VMachine and create anew empty one ">
+	 <delete dir="${DeploymnetFiles.dir}" failonerror="false"/>
+      	<mkdir dir="${DeploymnetFiles.dir}"/>
+    </target>
+
+<!-- Remote.EAR.Path refers to the full path of the EAR on Jenkins remote server  -->
+<!-- value = "-a" is used to refer the deisgn time libraries, any update in the design time libraries should be reflected in the file refered to in the "-a" property -->
+<!-- Achive.path = the relative path of the ear inside the source code-->
+     <target name="Build.EAR" depends="Clean" description="Validate and Build Ear for the BW project wih DTL">
+         <exec executable="${tibco.BuildEar.path}" failonerror="true">
+       <env key="PATH" path="${tibco.tra.home}"/>  <arg value="-x"/> <arg value="-v"/>  
+	   <arg value="-p"/>   <arg value="${Remote.App.path}"/>
+	    <arg value="-o"/>   <arg value="${Remote.EAR.Path}"/> 
+	   <arg value="-ear"/> <arg value="${Archive.path}"/> 
+	<arg value="-a"/> <arg value="${DTL.Property.Path}"/> 
+  	</exec> 
+    </target>
+
+
+
+<!-- This step just to keep backup from the XML before adding any update-->
+   <target name="Export.Original.XML" depends="Build.EAR" description="Extracts the  XML config file from the generated ear file with GV that defined inside the EAR">
+         <exec executable="${tibco.AppManage.path}" failonerror="true">
+			<env key="PATH" path="${tibco.tra.home}"/>
+		   <arg value="-export"/> <arg value="-out"/>   <arg value="${Exported.XML.Path}"/>
+	   		<arg value="-ear"/> <arg value="${Remote.EAR.Path}"/>		<arg value="-max"/>
+	   </exec>
+    </target>
+	<target name="Export.XML" depends="Build.EAR" description="Extracts the config file from the generated ear file .this GV in this file will be updated later ">
+         <exec executable="${tibco.AppManage.path}" failonerror="true">
+			<env key="PATH" path="${tibco.tra.home}"/>
+		   <arg value="-export"/> <arg value="-out"/>   <arg value="${Updated.xml.Path}"/>
+	   		<arg value="-ear"/> <arg value="${Remote.EAR.Path}"/>
+	   		
+	   </exec>
+    </target>
+<!-- referring to the jars needed for updating the configuration file 
+		depends="Export.XML" -->
+<target name="init" depends="Export.XML,Export.Original.XML">        
+        <property file="${propertyFile.Name}"/>
+        <taskdef name="xmltask" classname="com.oopsconsultancy.xmltask.ant.XmlTask"/>
+        <taskdef resource="net/sf/antcontrib/antlib.xml" />
+        <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+ </target>
+
+<!-- the below target required only foe LB deployment -->
+<!--<target name="AddBindingNode_LB" depends="Export.XML,init" description="Add Binding Node">
+	<xmltask source="${Updated.xml.Path}">
+		  <copy path="//:application/:services/:bw/:bindings/:binding" buffer="initBindingBuffer"/>
+	</xmltask>
+	<xmltask source="${Updated.xml.Path}" dest="${Updated.xml.Path}">
+  		<paste path="/:application/:services/:bw/:bindings/:binding" 
+         position="after" buffer="initBindingBuffer"/>
+	</xmltask>
+  </target> -->
+
+<!-- the below target required only foe LB deployment
+<target name="AddNVPairsNode_LB" depends="Export.XML,init,AddBindingNode_LB" description="Add Binding Node">
+	<xmltask source="${Updated.xml.Path}">
+		  <copy path="//:application/:services/:bw/:NVPairs[:NameValuePair/:name='ConnectionDetails/JMS_Connections/CLE/ClientID']" buffer="initNVPairsBuffer"/>
+	</xmltask>
+	<xmltask source="${Updated.xml.Path}" dest="${Updated.xml.Path}">
+  		<paste path="/:application/:services/:bw/:bindings/:binding/:machine" 
+         position="after" buffer="initNVPairsBuffer"/>
+	</xmltask>
+  </target> -->
+
+ <!-- incase of  LB deployment you need to  add this update -> depends="init,AddNVPairsNode_LB" -->
+
+<target name="UpdateXML" description="update the generated XML configuration values based on  Property file values " depends="init">      
+          <property file="${propertyFile.Name}" prefix="x"/>        
+          <local name="propertyList"/>
+          <propertyselector property="propertyList" delimiter="," select="\1" match="x\.([^\.]*)\.xpath" casesensitive="true" distinct="true"/>      
+          <for list="${propertyList}" param="sequence">               
+            <sequential>
+                <echo> @{sequence} </echo>  
+                <echo> @{sequence}.xpath = ${x.@{sequence}.xpath} </echo>
+                <echo> @{sequence}.value = ${x.@{sequence}.value} </echo>
+		
+			<xmltask dest="${Updated.xml.Path}">
+   			 <fileset file="${Updated.xml.Path}"/>
+  			 <replace 
+        		path="${x.@{sequence}.xpath}"
+        		withText="${x.@{sequence}.value}"/>
+		</xmltask>
+
+            </sequential>               
+          </for>          
+    </target> 
+
+<!-- scp = second copy, this copies from Windows (remote Jenkins dir) to Unix (path to start deployment) -->
+<!--<target name="CopyDeploymentFilestoRemoteMachine" description="Copy generated  XML and updated Ear to Remote Machine   " depends="UpdateXML"> 
+
+       <sshexec trust="true" host="${tibco.server.host}" username="${SSH.User}" password="${SSH.Password}" 
+    command="mkdir -p ${Server.Config.Folder.Path};"  failonerror="false"/>
+		<scp trust="true" file="${Remote.EAR.Path}" todir="${SSH.User}:${SSH.Password}@${tibco.server.host}:${SSH.Location}"/>
+	<scp trust="true" file="${Updated.xml.Path}" todir="${SSH.User}:${SSH.Password}@${tibco.server.host}:${SSH.Location}"/>
+	<scp trust="true" file="${EMSScript.Path}" todir="${SSH.User}:${SSH.Password}@${tibco.server.host}:${Server.Config.Folder.Path}"/>
+	<!--
+	  <scp todir="${SSH.User}:${SSH.Password}@${tibco.server.host}:${Server.Config.Folder.Path}">
+		<fileset dir="${EMSScript.Path}">
+		<include name="**/*.txt"/>
+	  </fileset>
+	</scp>
+
+
+	
+  </target> -->
+
+<!--<target name="CreateDeployment Prerequisites" description="Create IP_ADDRESS File,Create The Required Queue"   depends="CopyDeploymentFilestoRemoteMachine"> 
+	<sshexec trust="true" host="${tibco.server.host}" username="${SSH.User}" password="${SSH.Password}" 
+    command="touch  ${IP_ADDRESS.File.location};  
+							chmod -R 777	${SSH.Location} ;
+             cd ${Server.tibco.EMS.home};
+./tibemsadmin -server ${EMSConnectionURL} -user ${EMSUser} -password  ${EMSPassword} -script  ${Application.EMS.Script} ;"  failonerror="false"/>
+
+
+  </target> -->
+<!--optional-->
+
+<!--some times CreateDeployment Prerequisites is optional and you need only to put depends="CopyDeploymentFilestoRemoteMachine -->
+    <target name="deployEar" depends="CreateDeployment Prerequisites2"  description="Deploys">
+	
+	<sshexec trust="true" host="${tibco.server.host}" username="${SSH.User}" password="${SSH.Password}" 
+    command="cd ${Server.tibco.tra.home}; 
+./AppManage -deploy -app ${tibco.admin.dir} -domain ${tibco.domain}
+-deployconfig ${tibco.app.xml.config} -ear ${tibco.app.earfile}
+-user ${tibco.admin.user} -pw ${tibco.admin.password}  -desc ${appmanage.deployment.description} -nostart" 
+failonerror="false"/>
+
+
+
+    </target>
+
+<!--<target name="StopWSDlVAlidationAndAddSOAPTracing" description="update the application .tra  "  if="StopSoapTracing" depends="deployEar"> 
+	<scp trust="true" file="${Remote.SoapVAlidation.path}" todir="${SSH.User}:${SSH.Password}@${tibco.server.host}:${App.tra.path}"/>
+     
+	<sshexec trust="true" host="${tibco.server.host}" username="${SSH.User}" password="${SSH.Password}" 
+    command="cd ${App.tra.path};
+chmod -R 777	${App.tra.path} ;
+cat SoapVAlidation.txt>> ${Application.TRA.Name}" 
+failonerror="false"/>     
+    </target> -->
+
+</project>
