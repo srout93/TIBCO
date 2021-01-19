@@ -126,7 +126,7 @@
         <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
  </target>
 
-<!-- the below target required only foe LB deployment -->
+<!-- the below target required only for LB deployment -->
 <!--<target name="AddBindingNode_LB" depends="Export.XML,init" description="Add Binding Node">
 	<xmltask source="${Updated.xml.Path}">
 		  <copy path="//:application/:services/:bw/:bindings/:binding" buffer="initBindingBuffer"/>
